@@ -172,6 +172,170 @@ export class GBChessGame {
     }
 
     /**
+     * Check if a square is under attack by the opponent
+     * @param {number} row - Row to check
+     * @param {number} col - Column to check
+     * @param {boolean} byWhite - Check if white is attacking (true) or black (false)
+     * @returns {boolean}
+     */
+    isSquareUnderAttack(row, col, byWhite) {
+        // Check all opponent pieces to see if they can attack this square
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = this.board[r][c];
+                if (piece === '.') continue;
+                
+                const pieceIsWhite = piece >= 'A' && piece <= 'Z';
+                if (pieceIsWhite !== byWhite) continue;
+                
+                const dr = row - r;
+                const dc = col - c;
+                const p = piece.toLowerCase();
+                
+                // Check if this piece can attack the target square
+                switch (p) {
+                    case 'p':
+                        // Pawns attack diagonally
+                        if (Math.abs(dc) === 1) {
+                            if (byWhite && dr === -1) return true; // White pawn attacks upward
+                            if (!byWhite && dr === 1) return true; // Black pawn attacks downward
+                        }
+                        break;
+                        
+                    case 'n':
+                        // Knight moves
+                        for (const [dr2, dc2] of KNIGHT_MOVES) {
+                            if (dr === dr2 && dc === dc2) return true;
+                        }
+                        break;
+                        
+                    case 'k':
+                        // King moves
+                        if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) return true;
+                        break;
+                        
+                    case 'b':
+                        // Bishop moves diagonally
+                        if (Math.abs(dr) === Math.abs(dc) && dr !== 0) {
+                            if (this.isPathClear(r, c, row, col)) return true;
+                        }
+                        break;
+                        
+                    case 'r':
+                        // Rook moves straight
+                        if ((dr === 0 || dc === 0) && (dr !== 0 || dc !== 0)) {
+                            if (this.isPathClear(r, c, row, col)) return true;
+                        }
+                        break;
+                        
+                    case 'q':
+                        // Queen moves like rook or bishop
+                        if ((dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc)) && (dr !== 0 || dc !== 0)) {
+                            if (this.isPathClear(r, c, row, col)) return true;
+                        }
+                        break;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Find the position of a king
+     * @param {boolean} white - Find white king (true) or black king (false)
+     * @returns {Object|null} {row, col} or null if not found
+     */
+    findKing(white) {
+        const kingPiece = white ? 'K' : 'k';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                if (this.board[r][c] === kingPiece) {
+                    return { row: r, col: c };
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if a side's king is in check
+     * @param {boolean} white - Check white king (true) or black king (false)
+     * @returns {boolean}
+     */
+    isInCheck(white) {
+        const kingPos = this.findKing(white);
+        if (!kingPos) return false;
+        return this.isSquareUnderAttack(kingPos.row, kingPos.col, !white);
+    }
+
+    /**
+     * Check if a move would leave/put own king in check
+     */
+    wouldLeaveInCheck(fromR, fromC, toR, toC) {
+        const piece = this.board[fromR][fromC];
+        const pieceIsWhite = piece >= 'A' && piece <= 'Z';
+        const captured = this.board[toR][toC];
+        
+        // Make the move temporarily
+        this.board[toR][toC] = piece;
+        this.board[fromR][fromC] = '.';
+        
+        // Handle castling rook movement for check detection
+        let rookFromR = -1, rookFromC = -1, rookToR = -1, rookToC = -1;
+        if ((piece === 'K' || piece === 'k') && Math.abs(toC - fromC) === 2) {
+            if (piece === 'K' && fromR === 7 && fromC === 4) {
+                if (toC === 6) { // King-side
+                    rookFromR = 7; rookFromC = 7; rookToR = 7; rookToC = 5;
+                } else if (toC === 2) { // Queen-side
+                    rookFromR = 7; rookFromC = 0; rookToR = 7; rookToC = 3;
+                }
+            } else if (piece === 'k' && fromR === 0 && fromC === 4) {
+                if (toC === 6) { // King-side
+                    rookFromR = 0; rookFromC = 7; rookToR = 0; rookToC = 5;
+                } else if (toC === 2) { // Queen-side
+                    rookFromR = 0; rookFromC = 0; rookToR = 0; rookToC = 3;
+                }
+            }
+            if (rookFromR >= 0) {
+                this.board[rookToR][rookToC] = this.board[rookFromR][rookFromC];
+                this.board[rookFromR][rookFromC] = '.';
+            }
+        }
+        
+        // Check if king is in check
+        const inCheck = this.isInCheck(pieceIsWhite);
+        
+        // Undo the move
+        this.board[fromR][fromC] = piece;
+        this.board[toR][toC] = captured;
+        if (rookFromR >= 0) {
+            this.board[rookFromR][rookFromC] = this.board[rookToR][rookToC];
+            this.board[rookToR][rookToC] = '.';
+        }
+        
+        return inCheck;
+    }
+
+    /**
+     * Check if path between two squares is clear (no pieces in between)
+     */
+    isPathClear(fromR, fromC, toR, toC) {
+        const dr = toR - fromR;
+        const dc = toC - fromC;
+        const stepR = dr === 0 ? 0 : (dr > 0 ? 1 : -1);
+        const stepC = dc === 0 ? 0 : (dc > 0 ? 1 : -1);
+
+        let r = fromR + stepR;
+        let c = fromC + stepC;
+        while (r !== toR || c !== toC) {
+            if (this.board[r][c] !== '.') return false;
+            r += stepR;
+            c += stepC;
+        }
+        return true;
+    }
+
+    /**
      * Check if a move is valid
      */
     isValidMove(fromR, fromC, toR, toC) {
@@ -224,33 +388,65 @@ export class GBChessGame {
                         // White castling
                         if (dc === 2) {
                             // King-side castling
-                            return this.castlingRights.whiteKingSide &&
-                                   this.board[7][5] === '.' &&
-                                   this.board[7][6] === '.' &&
-                                   this.board[7][7] === 'R';
+                            if (!this.castlingRights.whiteKingSide ||
+                                this.board[7][5] !== '.' ||
+                                this.board[7][6] !== '.' ||
+                                this.board[7][7] !== 'R') return false;
+                            
+                            // Check king is not in check, doesn't move through check, or into check
+                            if (this.isSquareUnderAttack(7, 4, false) || // Current position
+                                this.isSquareUnderAttack(7, 5, false) || // Through square
+                                this.isSquareUnderAttack(7, 6, false)) { // Destination
+                                return false;
+                            }
+                            return true;
                         } else if (dc === -2) {
                             // Queen-side castling
-                            return this.castlingRights.whiteQueenSide &&
-                                   this.board[7][1] === '.' &&
-                                   this.board[7][2] === '.' &&
-                                   this.board[7][3] === '.' &&
-                                   this.board[7][0] === 'R';
+                            if (!this.castlingRights.whiteQueenSide ||
+                                this.board[7][1] !== '.' ||
+                                this.board[7][2] !== '.' ||
+                                this.board[7][3] !== '.' ||
+                                this.board[7][0] !== 'R') return false;
+                            
+                            // Check king is not in check, doesn't move through check, or into check
+                            if (this.isSquareUnderAttack(7, 4, false) || // Current position
+                                this.isSquareUnderAttack(7, 3, false) || // Through square
+                                this.isSquareUnderAttack(7, 2, false)) { // Destination
+                                return false;
+                            }
+                            return true;
                         }
                     } else if (piece === 'k' && fromR === 0 && fromC === 4) {
                         // Black castling
                         if (dc === 2) {
                             // King-side castling
-                            return this.castlingRights.blackKingSide &&
-                                   this.board[0][5] === '.' &&
-                                   this.board[0][6] === '.' &&
-                                   this.board[0][7] === 'r';
+                            if (!this.castlingRights.blackKingSide ||
+                                this.board[0][5] !== '.' ||
+                                this.board[0][6] !== '.' ||
+                                this.board[0][7] !== 'r') return false;
+                            
+                            // Check king is not in check, doesn't move through check, or into check
+                            if (this.isSquareUnderAttack(0, 4, true) || // Current position
+                                this.isSquareUnderAttack(0, 5, true) || // Through square
+                                this.isSquareUnderAttack(0, 6, true)) { // Destination
+                                return false;
+                            }
+                            return true;
                         } else if (dc === -2) {
                             // Queen-side castling
-                            return this.castlingRights.blackQueenSide &&
-                                   this.board[0][1] === '.' &&
-                                   this.board[0][2] === '.' &&
-                                   this.board[0][3] === '.' &&
-                                   this.board[0][0] === 'r';
+                            if (!this.castlingRights.blackQueenSide ||
+                                this.board[0][1] !== '.' ||
+                                this.board[0][2] !== '.' ||
+                                this.board[0][3] !== '.' ||
+                                this.board[0][0] !== 'r') return false;
+                            
+                            // Check king is not in check, doesn't move through check, or into check
+                            if (this.isSquareUnderAttack(0, 4, true) || // Current position
+                                this.isSquareUnderAttack(0, 3, true) || // Through square
+                                this.isSquareUnderAttack(0, 2, true)) { // Destination
+                                return false;
+                            }
+                            return true;
                         }
                     }
                 }
@@ -283,9 +479,12 @@ export class GBChessGame {
                 }
                 return true;
             }
+            default:
+                return false;
         }
 
-        return false;
+        // After all piece-specific validation, check if move would leave king in check
+        return !this.wouldLeaveInCheck(fromR, fromC, toR, toC);
     }
 
     /**
