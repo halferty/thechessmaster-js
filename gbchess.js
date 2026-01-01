@@ -480,7 +480,7 @@ export class GBChessGame {
 
                 let r = fromR + stepR;
                 let c = fromC + stepC;
-                while (r !== toR || c !== toC) {
+                while (!(r === toR && c === toC)) {
                     if (this.board[r][c] !== '.') return false;
                     r += stepR;
                     c += stepC;
