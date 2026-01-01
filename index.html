@@ -240,6 +240,75 @@
             text-decoration: underline;
         }
 
+        .move-log-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .move-log-header {
+            padding: 12px 15px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            user-select: none;
+        }
+
+        .move-log-header:hover {
+            background: #764ba2;
+        }
+
+        .move-log-header .toggle {
+            transition: transform 0.3s;
+        }
+
+        .move-log-header.collapsed .toggle {
+            transform: rotate(-90deg);
+        }
+
+        .move-log-content {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            transition: max-height 0.3s ease;
+        }
+
+        .move-log-content.collapsed {
+            max-height: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .move-log-content:empty::after {
+            content: 'No moves yet';
+            color: #999;
+            font-style: italic;
+        }
+
+        .move-entry {
+            padding: 6px 10px;
+            margin: 4px 0;
+            background: white;
+            border-radius: 4px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .move-entry:nth-child(odd) {
+            background: #f0f0f0;
+        }
+
+        .move-number {
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 10px;
+        }
+
         @media (max-width: 900px) {
             .game-layout {
                 grid-template-columns: 1fr;
@@ -307,6 +376,14 @@
 
                 <div id="status" class="status"></div>
 
+                <div class="move-log-container">
+                    <div class="move-log-header" id="moveLogHeader">
+                        <span>Move History</span>
+                        <span class="toggle">▼</span>
+                    </div>
+                    <div class="move-log-content" id="moveLogContent"></div>
+                </div>
+
                 <div class="controls">
                     <button id="newGame">New Game</button>
                     <button id="undoMove" disabled>Undo Move</button>
@@ -326,12 +403,52 @@
         let game = new GBChessGame();
         let selectedSquare = null;
         let moveHistory = [];
+        let moveLog = [];
+        let aiMoveTimeout = null;
 
         const pieceSymbols = {
             'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
             'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
             '.': ''
         };
+
+        function toChessNotation(row, col) {
+            const files = 'abcdefgh';
+            const rank = 8 - row;
+            return files[col] + rank;
+        }
+
+        function formatMove(fromRow, fromCol, toRow, toCol, piece) {
+            const from = toChessNotation(fromRow, fromCol);
+            const to = toChessNotation(toRow, toCol);
+            const pieceSymbol = pieceSymbols[piece] || '';
+            return `${pieceSymbol} ${from} → ${to}`;
+        }
+
+        function updateMoveLog() {
+            const logContent = document.getElementById('moveLogContent');
+            logContent.innerHTML = '';
+            
+            for (let i = 0; i < moveLog.length; i += 2) {
+                const moveNumber = Math.floor(i / 2) + 1;
+                const whiteMove = moveLog[i];
+                const blackMove = moveLog[i + 1];
+                
+                const entry = document.createElement('div');
+                entry.className = 'move-entry';
+                entry.innerHTML = `
+                    <span>
+                        <span class="move-number">${moveNumber}.</span>
+                        ${whiteMove}
+                    </span>
+                    ${blackMove ? `<span>${blackMove}</span>` : ''}
+                `;
+                logContent.appendChild(entry);
+            }
+            
+            // Auto-scroll to bottom
+            logContent.scrollTop = logContent.scrollHeight;
+        }
 
         function createBoard() {
             const chessboard = document.getElementById('chessboard');
@@ -358,6 +475,7 @@
 
             if (selectedSquare) {
                 // Try to make a move
+                const piece = game.board[selectedSquare.row][selectedSquare.col];
                 const success = game.makeMove(
                     selectedSquare.row,
                     selectedSquare.col,
@@ -366,6 +484,10 @@
                 );
 
                 if (success) {
+                    const moveNotation = formatMove(selectedSquare.row, selectedSquare.col, row, col, piece);
+                    moveLog.push(moveNotation);
+                    updateMoveLog();
+                    
                     moveHistory.push({
                         from: { row: selectedSquare.row, col: selectedSquare.col },
                         to: { row, col },
@@ -381,7 +503,11 @@
                         showStatus('Game Over! ' + (game.whiteToMove ? 'Black' : 'White') + ' wins!', 'success');
                     } else {
                         // Auto-trigger AI move after a short delay
-                        setTimeout(() => makeAIMove(), 300);
+                        if (aiMoveTimeout) clearTimeout(aiMoveTimeout);
+                        aiMoveTimeout = setTimeout(() => {
+                            aiMoveTimeout = null;
+                            makeAIMove();
+                        }, 300);
                     }
                 } else {
                     showStatus('Invalid move!', 'error');
@@ -437,7 +563,7 @@
             status.className = 'status ' + (type || '');
         }
 
-        async function makeAIMove() {
+        function makeAIMove() {
             if (game.isGameOver()) {
                 showStatus('Game is over!', 'error');
                 return;
@@ -446,32 +572,41 @@
             const difficulty = parseInt(document.getElementById('difficulty').value);
             showStatus('AI thinking...', 'thinking');
             
-            // Use setTimeout to allow UI to update
-            setTimeout(() => {
+            // Use requestAnimationFrame to allow UI to update first
+            requestAnimationFrame(() => {
                 const startTime = performance.now();
                 const bestMove = game.getBestMove(difficulty);
                 const endTime = performance.now();
                 
                 if (bestMove) {
-                    game.makeMove(
+                    const piece = game.board[bestMove.fromRow][bestMove.fromCol];
+                    const moveSuccess = game.makeMove(
                         bestMove.fromRow,
                         bestMove.fromCol,
                         bestMove.toRow,
                         bestMove.toCol
                     );
                     
-                    moveHistory.push({
-                        from: { row: bestMove.fromRow, col: bestMove.fromCol },
-                        to: { row: bestMove.toRow, col: bestMove.toCol },
-                        board: game.clone()
-                    });
-                    document.getElementById('undoMove').disabled = false;
-                    
-                    const time = (endTime - startTime).toFixed(2);
-                    showStatus(`AI moved in ${time}ms (score: ${bestMove.score})`, 'success');
-                    
-                    if (game.isGameOver()) {
-                        showStatus('Game Over! ' + (game.whiteToMove ? 'Black' : 'White') + ' wins!', 'success');
+                    if (moveSuccess) {
+                        const moveNotation = formatMove(bestMove.fromRow, bestMove.fromCol, bestMove.toRow, bestMove.toCol, piece);
+                        moveLog.push(moveNotation);
+                        updateMoveLog();
+                        
+                        moveHistory.push({
+                            from: { row: bestMove.fromRow, col: bestMove.fromCol },
+                            to: { row: bestMove.toRow, col: bestMove.toCol },
+                            board: game.clone()
+                        });
+                        document.getElementById('undoMove').disabled = false;
+                        
+                        const time = (endTime - startTime).toFixed(2);
+                        showStatus(`AI moved in ${time}ms (score: ${bestMove.score})`, 'success');
+                        
+                        if (game.isGameOver()) {
+                            showStatus('Game Over! ' + (game.whiteToMove ? 'Black' : 'White') + ' wins!', 'success');
+                        }
+                    } else {
+                        showStatus('AI move failed!', 'error');
                     }
                 } else {
                     showStatus('No legal moves available!', 'error');
@@ -479,12 +614,21 @@
                 
                 clearSelection();
                 createBoard();
-            }, 100);
+            });
         }
 
         function undoMove() {
+            // Cancel any pending AI moves
+            if (aiMoveTimeout) {
+                clearTimeout(aiMoveTimeout);
+                aiMoveTimeout = null;
+            }
+            
             if (moveHistory.length > 0) {
                 moveHistory.pop();
+                moveLog.pop();
+                updateMoveLog();
+                
                 if (moveHistory.length > 0) {
                     const lastState = moveHistory[moveHistory.length - 1].board;
                     game = lastState.clone();
@@ -499,21 +643,37 @@
         }
 
         function newGame() {
+            // Cancel any pending AI moves
+            if (aiMoveTimeout) {
+                clearTimeout(aiMoveTimeout);
+                aiMoveTimeout = null;
+            }
+            
             game = new GBChessGame();
             moveHistory = [];
+            moveLog = [];
             selectedSquare = null;
             document.getElementById('undoMove').disabled = true;
             clearSelection();
             createBoard();
+            updateMoveLog();
             showStatus('New game started!', 'success');
         }
 
         // Event listeners
         document.getElementById('newGame').addEventListener('click', newGame);
         document.getElementById('undoMove').addEventListener('click', undoMove);
+        
+        document.getElementById('moveLogHeader').addEventListener('click', () => {
+            const header = document.getElementById('moveLogHeader');
+            const content = document.getElementById('moveLogContent');
+            header.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+        });
 
         // Initialize
         createBoard();
+        updateMoveLog();
     </script>
 </body>
 </html>

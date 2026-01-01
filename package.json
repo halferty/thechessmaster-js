@@ -17,7 +17,7 @@
     "minimax",
     "chessmaster"
   ],
-  "author": "Your Name",
+  "author": "Edward Halferty",
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"
