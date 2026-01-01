@@ -637,8 +637,15 @@
             }
             
             if (moveHistory.length > 0) {
-                moveHistory.pop();
-                moveLog.pop();
+                // Undo the last 2 moves (player + AI response)
+                // But if there's only 1 move, just undo that one
+                const movesToUndo = Math.min(2, moveHistory.length);
+                
+                for (let i = 0; i < movesToUndo; i++) {
+                    moveHistory.pop();
+                    moveLog.pop();
+                }
+                
                 updateMoveLog();
                 
                 if (moveHistory.length > 0) {
@@ -650,7 +657,7 @@
                 }
                 clearSelection();
                 createBoard();
-                showStatus('Move undone', 'success');
+                showStatus(movesToUndo === 2 ? 'Last 2 moves undone' : 'Move undone', 'success');
             }
         }
 
