@@ -1,0 +1,25 @@
+{
+  "name": "thechessmaster-js",
+  "version": "1.0.0",
+  "description": "Vibe reverse-engineered chess engine from The Chessmaster for Nintendo GameBoy (1990), ported to Javascript",
+  "type": "module",
+  "main": "gbchess.js",
+  "scripts": {
+    "test": "node test_js.js",
+    "serve": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "chess",
+    "game-boy",
+    "retro",
+    "engine",
+    "ai",
+    "minimax",
+    "chessmaster"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

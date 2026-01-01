@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GB Chess - 1990 Game Boy Chess Engine in JavaScript</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 0;
+            width: 100%;
+            max-width: 480px;
+            margin: 20px auto;
+            border: 3px solid #333;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .square {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .square.light {
+            background: #f0d9b5;
+        }
+
+        .square.dark {
+            background: #b58863;
+        }
+
+        .square.selected {
+            background: #7fc97f !important;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .square.valid-move {
+            background: #fdc830 !important;
+        }
+
+        .square:hover {
+            opacity: 0.8;
+            transform: scale(0.95);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #667eea;
+            color: white;
+        }
+
+        button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        .info .turn {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .info .eval {
+            margin-top: 5px;
+            color: #666;
+        }
+
+        .difficulty-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .difficulty-selector label {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        select {
+            padding: 8px 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .status {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .status.thinking {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .github-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .github-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .github-link a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .square {
+                font-size: 1.5em;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>♟️ GB Chess Engine</h1>
+        <p class="subtitle">1990 Game Boy Chessmaster Engine - Now in JavaScript!</p>
+
+        <div class="info">
+            <div class="turn" id="turn">White to move</div>
+            <div class="eval" id="eval">Evaluation: 0</div>
+        </div>
+
+        <div class="difficulty-selector">
+            <label for="difficulty">AI Difficulty:</label>
+            <select id="difficulty">
+                <option value="1">Beginner (Depth 1)</option>
+                <option value="2" selected>Easy (Depth 2)</option>
+                <option value="3">Medium (Depth 3)</option>
+                <option value="4">Hard (Depth 4)</option>
+                <option value="5">Expert (Depth 5)</option>
+            </select>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+
+        <div class="chessboard" id="chessboard"></div>
+
+        <div class="controls">
+            <button id="newGame">New Game</button>
+            <button id="aiMove">AI Move (Black)</button>
+            <button id="undoMove" disabled>Undo Move</button>
+        </div>
+
+        <div class="github-link">
+            <p>Reverse engineered from The Chessmaster (Game Boy, 1990)</p>
+            <p>Original GB assembly → C library → JavaScript port</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GBChessGame, GBDifficulty } from './gbchess.js';
+
+        let game = new GBChessGame();
+        let selectedSquare = null;
+        let moveHistory = [];
+
+        const pieceSymbols = {
+            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
+            '.': ''
+        };
+
+        function createBoard() {
+            const chessboard = document.getElementById('chessboard');
+            chessboard.innerHTML = '';
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.className = 'square ' + ((row + col) % 2 === 0 ? 'light' : 'dark');
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    square.textContent = pieceSymbols[game.board[row][col]];
+                    square.addEventListener('click', handleSquareClick);
+                    chessboard.appendChild(square);
+                }
+            }
+
+            updateInfo();
+        }
+
+        function handleSquareClick(e) {
+            const row = parseInt(e.target.dataset.row);
+            const col = parseInt(e.target.dataset.col);
+
+            if (selectedSquare) {
+                // Try to make a move
+                const success = game.makeMove(
+                    selectedSquare.row,
+                    selectedSquare.col,
+                    row,
+                    col
+                );
+
+                if (success) {
+                    moveHistory.push({
+                        from: { row: selectedSquare.row, col: selectedSquare.col },
+                        to: { row, col },
+                        board: game.clone()
+                    });
+                    document.getElementById('undoMove').disabled = false;
+                    showStatus('Move made!', 'success');
+                    
+                    if (game.isGameOver()) {
+                        showStatus('Game Over! ' + (game.whiteToMove ? 'Black' : 'White') + ' wins!', 'success');
+                    }
+                } else {
+                    showStatus('Invalid move!', 'error');
+                }
+
+                clearSelection();
+                createBoard();
+            } else {
+                // Select a piece
+                const piece = game.board[row][col];
+                if (piece !== '.') {
+                    const pieceIsWhite = piece >= 'A' && piece <= 'Z';
+                    if (pieceIsWhite === game.whiteToMove) {
+                        selectedSquare = { row, col };
+                        highlightValidMoves(row, col);
+                    }
+                }
+            }
+        }
+
+        function highlightValidMoves(fromRow, fromCol) {
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                const row = parseInt(square.dataset.row);
+                const col = parseInt(square.dataset.col);
+
+                if (row === fromRow && col === fromCol) {
+                    square.classList.add('selected');
+                } else if (game.isValidMove(fromRow, fromCol, row, col)) {
+                    square.classList.add('valid-move');
+                }
+            });
+        }
+
+        function clearSelection() {
+            selectedSquare = null;
+            document.querySelectorAll('.square').forEach(square => {
+                square.classList.remove('selected', 'valid-move');
+            });
+        }
+
+        function updateInfo() {
+            document.getElementById('turn').textContent = 
+                (game.whiteToMove ? 'White' : 'Black') + ' to move';
+            
+            const evaluation = game.evaluate();
+            document.getElementById('eval').textContent = 
+                `Evaluation: ${evaluation > 0 ? '+' : ''}${evaluation} (${evaluation > 0 ? 'White' : 'Black'} advantage)`;
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+            
+            if (type !== 'thinking') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        async function makeAIMove() {
+            if (game.isGameOver()) {
+                showStatus('Game is over!', 'error');
+                return;
+            }
+
+            const difficulty = parseInt(document.getElementById('difficulty').value);
+            showStatus('AI thinking...', 'thinking');
+            
+            // Use setTimeout to allow UI to update
+            setTimeout(() => {
+                const startTime = performance.now();
+                const bestMove = game.getBestMove(difficulty);
+                const endTime = performance.now();
+                
+                if (bestMove) {
+                    game.makeMove(
+                        bestMove.fromRow,
+                        bestMove.fromCol,
+                        bestMove.toRow,
+                        bestMove.toCol
+                    );
+                    
+                    moveHistory.push({
+                        from: { row: bestMove.fromRow, col: bestMove.fromCol },
+                        to: { row: bestMove.toRow, col: bestMove.toCol },
+                        board: game.clone()
+                    });
+                    document.getElementById('undoMove').disabled = false;
+                    
+                    const time = (endTime - startTime).toFixed(2);
+                    showStatus(`AI moved in ${time}ms (score: ${bestMove.score})`, 'success');
+                    
+                    if (game.isGameOver()) {
+                        showStatus('Game Over! ' + (game.whiteToMove ? 'Black' : 'White') + ' wins!', 'success');
+                    }
+                } else {
+                    showStatus('No legal moves available!', 'error');
+                }
+                
+                clearSelection();
+                createBoard();
+            }, 100);
+        }
+
+        function undoMove() {
+            if (moveHistory.length > 0) {
+                moveHistory.pop();
+                if (moveHistory.length > 0) {
+                    const lastState = moveHistory[moveHistory.length - 1].board;
+                    game = lastState.clone();
+                } else {
+                    game = new GBChessGame();
+                    document.getElementById('undoMove').disabled = true;
+                }
+                clearSelection();
+                createBoard();
+                showStatus('Move undone', 'success');
+            }
+        }
+
+        function newGame() {
+            game = new GBChessGame();
+            moveHistory = [];
+            selectedSquare = null;
+            document.getElementById('undoMove').disabled = true;
+            clearSelection();
+            createBoard();
+            showStatus('New game started!', 'success');
+        }
+
+        // Event listeners
+        document.getElementById('newGame').addEventListener('click', newGame);
+        document.getElementById('aiMove').addEventListener('click', makeAIMove);
+        document.getElementById('undoMove').addEventListener('click', undoMove);
+
+        // Initialize
+        createBoard();
+    </script>
+</body>
+</html>
