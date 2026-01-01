@@ -394,14 +394,14 @@ export class GBChessGame {
                 
                 this.board[move.toRow][move.toCol] = movedPiece;
                 this.board[move.fromRow][move.fromCol] = '.';
-                this.whiteToMove = false;
+                this.whiteToMove = !this.whiteToMove;
 
                 const evaluation = this.minimax(depth - 1, alpha, beta, false);
 
                 // Undo move
                 this.board[move.fromRow][move.fromCol] = piece;
                 this.board[move.toRow][move.toCol] = captured;
-                this.whiteToMove = true;
+                this.whiteToMove = !this.whiteToMove;
 
                 maxEval = Math.max(maxEval, evaluation);
                 alpha = Math.max(alpha, evaluation);
@@ -423,14 +423,14 @@ export class GBChessGame {
                 
                 this.board[move.toRow][move.toCol] = movedPiece;
                 this.board[move.fromRow][move.fromCol] = '.';
-                this.whiteToMove = true;
+                this.whiteToMove = !this.whiteToMove;
 
                 const evaluation = this.minimax(depth - 1, alpha, beta, true);
 
                 // Undo move
                 this.board[move.fromRow][move.fromCol] = piece;
                 this.board[move.toRow][move.toCol] = captured;
-                this.whiteToMove = false;
+                this.whiteToMove = !this.whiteToMove;
 
                 minEval = Math.min(minEval, evaluation);
                 beta = Math.min(beta, evaluation);
