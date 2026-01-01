@@ -277,7 +277,13 @@ export class GBChessGame {
         const captured = this.board[toR][toC];
         
         // Make the move temporarily
-        this.board[toR][toC] = piece;
+        let movedPiece = piece;
+        // Handle pawn promotion
+        if ((piece === 'P' && toR === 0) || (piece === 'p' && toR === 7)) {
+            movedPiece = piece === 'P' ? 'Q' : 'q';
+        }
+        
+        this.board[toR][toC] = movedPiece;
         this.board[fromR][fromC] = '.';
         
         // Handle castling rook movement for check detection
