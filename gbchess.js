@@ -92,6 +92,14 @@ export class GBChessGame {
         ];
         this.whiteToMove = true;
         this.moveCount = 0;
+        
+        // Castling rights tracking
+        this.castlingRights = {
+            whiteKingSide: true,
+            whiteQueenSide: true,
+            blackKingSide: true,
+            blackQueenSide: true
+        };
     }
 
     /**
@@ -112,9 +120,49 @@ export class GBChessGame {
         this.board[toRow][toCol] = piece;
         this.board[fromRow][fromCol] = '.';
 
+        // Handle castling - move the rook
+        if (piece === 'K' && Math.abs(toCol - fromCol) === 2) {
+            // White castling
+            if (toCol === 6) {
+                // King-side
+                this.board[7][5] = 'R';
+                this.board[7][7] = '.';
+            } else if (toCol === 2) {
+                // Queen-side
+                this.board[7][3] = 'R';
+                this.board[7][0] = '.';
+            }
+        } else if (piece === 'k' && Math.abs(toCol - fromCol) === 2) {
+            // Black castling
+            if (toCol === 6) {
+                // King-side
+                this.board[0][5] = 'r';
+                this.board[0][7] = '.';
+            } else if (toCol === 2) {
+                // Queen-side
+                this.board[0][3] = 'r';
+                this.board[0][0] = '.';
+            }
+        }
+
         // Pawn promotion
         if ((piece === 'P' && toRow === 0) || (piece === 'p' && toRow === 7)) {
             this.board[toRow][toCol] = piece === 'P' ? 'Q' : 'q';
+        }
+
+        // Update castling rights
+        if (piece === 'K') {
+            this.castlingRights.whiteKingSide = false;
+            this.castlingRights.whiteQueenSide = false;
+        } else if (piece === 'k') {
+            this.castlingRights.blackKingSide = false;
+            this.castlingRights.blackQueenSide = false;
+        } else if (piece === 'R') {
+            if (fromRow === 7 && fromCol === 7) this.castlingRights.whiteKingSide = false;
+            if (fromRow === 7 && fromCol === 0) this.castlingRights.whiteQueenSide = false;
+        } else if (piece === 'r') {
+            if (fromRow === 0 && fromCol === 7) this.castlingRights.blackKingSide = false;
+            if (fromRow === 0 && fromCol === 0) this.castlingRights.blackQueenSide = false;
         }
 
         this.whiteToMove = !this.whiteToMove;
@@ -167,7 +215,46 @@ export class GBChessGame {
 
             case 'K':
             case 'k':
-                return Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
+                // Normal king move
+                if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) return true;
+                
+                // Castling
+                if (dr === 0 && Math.abs(dc) === 2) {
+                    if (piece === 'K' && fromR === 7 && fromC === 4) {
+                        // White castling
+                        if (dc === 2) {
+                            // King-side castling
+                            return this.castlingRights.whiteKingSide &&
+                                   this.board[7][5] === '.' &&
+                                   this.board[7][6] === '.' &&
+                                   this.board[7][7] === 'R';
+                        } else if (dc === -2) {
+                            // Queen-side castling
+                            return this.castlingRights.whiteQueenSide &&
+                                   this.board[7][1] === '.' &&
+                                   this.board[7][2] === '.' &&
+                                   this.board[7][3] === '.' &&
+                                   this.board[7][0] === 'R';
+                        }
+                    } else if (piece === 'k' && fromR === 0 && fromC === 4) {
+                        // Black castling
+                        if (dc === 2) {
+                            // King-side castling
+                            return this.castlingRights.blackKingSide &&
+                                   this.board[0][5] === '.' &&
+                                   this.board[0][6] === '.' &&
+                                   this.board[0][7] === 'r';
+                        } else if (dc === -2) {
+                            // Queen-side castling
+                            return this.castlingRights.blackQueenSide &&
+                                   this.board[0][1] === '.' &&
+                                   this.board[0][2] === '.' &&
+                                   this.board[0][3] === '.' &&
+                                   this.board[0][0] === 'r';
+                        }
+                    }
+                }
+                return false;
 
             case 'B':
             case 'b':
@@ -382,26 +469,16 @@ export class GBChessGame {
         if (maximizing) {
             let maxEval = -Infinity;
             for (const move of moves) {
-                // Make move
-                const captured = this.board[move.toRow][move.toCol];
-                const piece = this.board[move.fromRow][move.fromCol];
-                let movedPiece = piece;
+                // Save state
+                const savedState = this._saveState();
                 
-                // Handle pawn promotion
-                if ((piece === 'P' && move.toRow === 0) || (piece === 'p' && move.toRow === 7)) {
-                    movedPiece = piece === 'P' ? 'Q' : 'q';
-                }
-                
-                this.board[move.toRow][move.toCol] = movedPiece;
-                this.board[move.fromRow][move.fromCol] = '.';
-                this.whiteToMove = !this.whiteToMove;
+                // Make move using the full makeMove logic
+                this._makeMoveMinimax(move);
 
                 const evaluation = this.minimax(depth - 1, alpha, beta, false);
 
-                // Undo move
-                this.board[move.fromRow][move.fromCol] = piece;
-                this.board[move.toRow][move.toCol] = captured;
-                this.whiteToMove = !this.whiteToMove;
+                // Restore state
+                this._restoreState(savedState);
 
                 maxEval = Math.max(maxEval, evaluation);
                 alpha = Math.max(alpha, evaluation);
@@ -411,26 +488,16 @@ export class GBChessGame {
         } else {
             let minEval = Infinity;
             for (const move of moves) {
-                // Make move
-                const captured = this.board[move.toRow][move.toCol];
-                const piece = this.board[move.fromRow][move.fromCol];
-                let movedPiece = piece;
+                // Save state
+                const savedState = this._saveState();
                 
-                // Handle pawn promotion
-                if ((piece === 'P' && move.toRow === 0) || (piece === 'p' && move.toRow === 7)) {
-                    movedPiece = piece === 'P' ? 'Q' : 'q';
-                }
-                
-                this.board[move.toRow][move.toCol] = movedPiece;
-                this.board[move.fromRow][move.fromCol] = '.';
-                this.whiteToMove = !this.whiteToMove;
+                // Make move using the full makeMove logic
+                this._makeMoveMinimax(move);
 
                 const evaluation = this.minimax(depth - 1, alpha, beta, true);
 
-                // Undo move
-                this.board[move.fromRow][move.fromCol] = piece;
-                this.board[move.toRow][move.toCol] = captured;
-                this.whiteToMove = !this.whiteToMove;
+                // Restore state
+                this._restoreState(savedState);
 
                 minEval = Math.min(minEval, evaluation);
                 beta = Math.min(beta, evaluation);
@@ -438,6 +505,76 @@ export class GBChessGame {
             }
             return minEval;
         }
+    }
+
+    /**
+     * Helper to save game state for minimax
+     */
+    _saveState() {
+        return {
+            board: this.board.map(row => [...row]),
+            whiteToMove: this.whiteToMove,
+            castlingRights: { ...this.castlingRights }
+        };
+    }
+
+    /**
+     * Helper to restore game state for minimax
+     */
+    _restoreState(state) {
+        this.board = state.board;
+        this.whiteToMove = state.whiteToMove;
+        this.castlingRights = state.castlingRights;
+    }
+
+    /**
+     * Make a move in minimax without validation (move is already validated)
+     */
+    _makeMoveMinimax(move) {
+        const piece = this.board[move.fromRow][move.fromCol];
+        this.board[move.toRow][move.toCol] = piece;
+        this.board[move.fromRow][move.fromCol] = '.';
+
+        // Handle castling - move the rook
+        if (piece === 'K' && Math.abs(move.toCol - move.fromCol) === 2) {
+            if (move.toCol === 6) {
+                this.board[7][5] = 'R';
+                this.board[7][7] = '.';
+            } else if (move.toCol === 2) {
+                this.board[7][3] = 'R';
+                this.board[7][0] = '.';
+            }
+        } else if (piece === 'k' && Math.abs(move.toCol - move.fromCol) === 2) {
+            if (move.toCol === 6) {
+                this.board[0][5] = 'r';
+                this.board[0][7] = '.';
+            } else if (move.toCol === 2) {
+                this.board[0][3] = 'r';
+                this.board[0][0] = '.';
+            }
+        }
+
+        // Pawn promotion
+        if ((piece === 'P' && move.toRow === 0) || (piece === 'p' && move.toRow === 7)) {
+            this.board[move.toRow][move.toCol] = piece === 'P' ? 'Q' : 'q';
+        }
+
+        // Update castling rights
+        if (piece === 'K') {
+            this.castlingRights.whiteKingSide = false;
+            this.castlingRights.whiteQueenSide = false;
+        } else if (piece === 'k') {
+            this.castlingRights.blackKingSide = false;
+            this.castlingRights.blackQueenSide = false;
+        } else if (piece === 'R') {
+            if (move.fromRow === 7 && move.fromCol === 7) this.castlingRights.whiteKingSide = false;
+            if (move.fromRow === 7 && move.fromCol === 0) this.castlingRights.whiteQueenSide = false;
+        } else if (piece === 'r') {
+            if (move.fromRow === 0 && move.fromCol === 7) this.castlingRights.blackKingSide = false;
+            if (move.fromRow === 0 && move.fromCol === 0) this.castlingRights.blackQueenSide = false;
+        }
+
+        this.whiteToMove = !this.whiteToMove;
     }
 
     /**
@@ -457,26 +594,16 @@ export class GBChessGame {
         let beta = Infinity;
 
         for (const move of moves) {
+            // Save state
+            const savedState = this._saveState();
+            
             // Make move
-            const captured = this.board[move.toRow][move.toCol];
-            const piece = this.board[move.fromRow][move.fromCol];
-            let movedPiece = piece;
-            
-            // Handle pawn promotion
-            if ((piece === 'P' && move.toRow === 0) || (piece === 'p' && move.toRow === 7)) {
-                movedPiece = piece === 'P' ? 'Q' : 'q';
-            }
-            
-            this.board[move.toRow][move.toCol] = movedPiece;
-            this.board[move.fromRow][move.fromCol] = '.';
-            this.whiteToMove = !this.whiteToMove;
+            this._makeMoveMinimax(move);
 
             const evaluation = this.minimax(depth - 1, alpha, beta, !this.whiteToMove);
 
-            // Undo move
-            this.board[move.fromRow][move.fromCol] = piece;
-            this.board[move.toRow][move.toCol] = captured;
-            this.whiteToMove = !this.whiteToMove;
+            // Restore state
+            this._restoreState(savedState);
 
             move.score = evaluation;
 
@@ -540,6 +667,7 @@ export class GBChessGame {
         cloned.board = this.board.map(row => [...row]);
         cloned.whiteToMove = this.whiteToMove;
         cloned.moveCount = this.moveCount;
+        cloned.castlingRights = { ...this.castlingRights };
         return cloned;
     }
 }
