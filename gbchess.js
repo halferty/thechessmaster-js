@@ -333,7 +333,9 @@ export class GBChessGame {
 
         let r = fromR + stepR;
         let c = fromC + stepC;
-        while (r !== toR || c !== toC) {
+        
+        // Continue until we reach the destination square
+        while (!(r === toR && c === toC)) {
             if (this.board[r][c] !== '.') return false;
             r += stepR;
             c += stepC;
