@@ -27,8 +27,27 @@
             border-radius: 15px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 30px;
-            max-width: 700px;
+            max-width: 1000px;
             width: 100%;
+        }
+
+        .game-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
         h1 {
@@ -50,8 +69,8 @@
             grid-template-columns: repeat(8, 1fr);
             gap: 0;
             width: 100%;
-            max-width: 480px;
-            margin: 20px auto;
+            max-width: 450px;
+            margin: 0;
             border: 3px solid #333;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
@@ -91,10 +110,13 @@
 
         .controls {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 10px;
-            justify-content: center;
-            margin: 20px 0;
+            margin: 0;
+        }
+
+        .controls button {
+            width: 100%;
         }
 
         button {
@@ -131,7 +153,8 @@
             padding: 15px;
             background: #f8f9fa;
             border-radius: 8px;
-            margin: 10px 0;
+            margin: 0;
+            width: 100%;
         }
 
         .info .turn {
@@ -147,10 +170,14 @@
 
         .difficulty-selector {
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
+            align-items: stretch;
             gap: 10px;
-            margin: 15px 0;
+            margin: 0;
+        }
+
+        .difficulty-selector select {
+            width: 100%;
         }
 
         .difficulty-selector label {
@@ -170,10 +197,16 @@
 
         .status {
             text-align: center;
-            margin: 15px 0;
+            margin: 0;
             padding: 10px;
             border-radius: 8px;
             font-weight: bold;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            color: #666;
         }
 
         .status.thinking {
@@ -207,6 +240,24 @@
             text-decoration: underline;
         }
 
+        @media (max-width: 900px) {
+            .game-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .left-column {
+                order: 2;
+            }
+
+            .right-column {
+                order: 1;
+            }
+
+            .chessboard {
+                margin: 20px auto;
+            }
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 15px;
@@ -232,30 +283,35 @@
         <h1>♟️ GB Chess Engine</h1>
         <p class="subtitle">1990 Game Boy Chessmaster Engine - Now in JavaScript!</p>
 
-        <div class="info">
-            <div class="turn" id="turn">White to move</div>
-            <div class="eval" id="eval">Evaluation: 0</div>
-        </div>
+        <div class="game-layout">
+            <div class="left-column">
+                <div class="chessboard" id="chessboard"></div>
+            </div>
 
-        <div class="difficulty-selector">
-            <label for="difficulty">AI Difficulty:</label>
-            <select id="difficulty">
-                <option value="1">Beginner (Depth 1)</option>
-                <option value="2" selected>Easy (Depth 2)</option>
-                <option value="3">Medium (Depth 3)</option>
-                <option value="4">Hard (Depth 4)</option>
-                <option value="5">Expert (Depth 5)</option>
-            </select>
-        </div>
+            <div class="right-column">
+                <div class="info">
+                    <div class="turn" id="turn">White to move</div>
+                    <div class="eval" id="eval">Evaluation: 0</div>
+                </div>
 
-        <div id="status" class="status" style="display: none;"></div>
+                <div class="difficulty-selector">
+                    <label for="difficulty">AI Difficulty:</label>
+                    <select id="difficulty">
+                        <option value="1">Beginner (Depth 1)</option>
+                        <option value="2" selected>Easy (Depth 2)</option>
+                        <option value="3">Medium (Depth 3)</option>
+                        <option value="4">Hard (Depth 4)</option>
+                        <option value="5">Expert (Depth 5)</option>
+                    </select>
+                </div>
 
-        <div class="chessboard" id="chessboard"></div>
+                <div id="status" class="status"></div>
 
-        <div class="controls">
-            <button id="newGame">New Game</button>
-            <button id="aiMove">AI Move (Black)</button>
-            <button id="undoMove" disabled>Undo Move</button>
+                <div class="controls">
+                    <button id="newGame">New Game</button>
+                    <button id="undoMove" disabled>Undo Move</button>
+                </div>
+            </div>
         </div>
 
         <div class="github-link">
@@ -318,15 +374,20 @@
                     document.getElementById('undoMove').disabled = false;
                     showStatus('Move made!', 'success');
                     
+                    clearSelection();
+                    createBoard();
+                    
                     if (game.isGameOver()) {
                         showStatus('Game Over! ' + (game.whiteToMove ? 'Black' : 'White') + ' wins!', 'success');
+                    } else {
+                        // Auto-trigger AI move after a short delay
+                        setTimeout(() => makeAIMove(), 300);
                     }
                 } else {
                     showStatus('Invalid move!', 'error');
+                    clearSelection();
+                    createBoard();
                 }
-
-                clearSelection();
-                createBoard();
             } else {
                 // Select a piece
                 const piece = game.board[row][col];
@@ -372,15 +433,8 @@
 
         function showStatus(message, type) {
             const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = 'status ' + type;
-            status.style.display = 'block';
-            
-            if (type !== 'thinking') {
-                setTimeout(() => {
-                    status.style.display = 'none';
-                }, 3000);
-            }
+            status.textContent = message || '';
+            status.className = 'status ' + (type || '');
         }
 
         async function makeAIMove() {
@@ -456,7 +510,6 @@
 
         // Event listeners
         document.getElementById('newGame').addEventListener('click', newGame);
-        document.getElementById('aiMove').addEventListener('click', makeAIMove);
         document.getElementById('undoMove').addEventListener('click', undoMove);
 
         // Initialize
