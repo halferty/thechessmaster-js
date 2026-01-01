@@ -367,28 +367,33 @@ export class GBChessGame {
 
         switch (piece) {
             case 'P':
-                if (dc === 0 && dr === -1 && target === '.') return true;
-                if (dc === 0 && dr === -2 && fromR === 6 && this.board[5][fromC] === '.' && target === '.') return true;
-                if (Math.abs(dc) === 1 && dr === -1 && target !== '.' && target >= 'a' && target <= 'z') return true;
+                if (dc === 0 && dr === -1 && target === '.') break;
+                if (dc === 0 && dr === -2 && fromR === 6 && this.board[5][fromC] === '.' && target === '.') break;
+                if (Math.abs(dc) === 1 && dr === -1 && target !== '.' && target >= 'a' && target <= 'z') break;
                 return false;
 
             case 'p':
-                if (dc === 0 && dr === 1 && target === '.') return true;
-                if (dc === 0 && dr === 2 && fromR === 1 && this.board[2][fromC] === '.' && target === '.') return true;
-                if (Math.abs(dc) === 1 && dr === 1 && target !== '.' && target >= 'A' && target <= 'Z') return true;
+                if (dc === 0 && dr === 1 && target === '.') break;
+                if (dc === 0 && dr === 2 && fromR === 1 && this.board[2][fromC] === '.' && target === '.') break;
+                if (Math.abs(dc) === 1 && dr === 1 && target !== '.' && target >= 'A' && target <= 'Z') break;
                 return false;
 
             case 'N':
             case 'n':
+                let validKnightMove = false;
                 for (const [dr2, dc2] of KNIGHT_MOVES) {
-                    if (dr === dr2 && dc === dc2) return true;
+                    if (dr === dr2 && dc === dc2) {
+                        validKnightMove = true;
+                        break;
+                    }
                 }
-                return false;
+                if (!validKnightMove) return false;
+                break;
 
             case 'K':
             case 'k':
                 // Normal king move
-                if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) return true;
+                if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) break;
                 
                 // Castling
                 if (dr === 0 && Math.abs(dc) === 2) {
@@ -407,7 +412,7 @@ export class GBChessGame {
                                 this.isSquareUnderAttack(7, 6, false)) { // Destination
                                 return false;
                             }
-                            return true;
+                            break;
                         } else if (dc === -2) {
                             // Queen-side castling
                             if (!this.castlingRights.whiteQueenSide ||
@@ -422,7 +427,7 @@ export class GBChessGame {
                                 this.isSquareUnderAttack(7, 2, false)) { // Destination
                                 return false;
                             }
-                            return true;
+                            break;
                         }
                     } else if (piece === 'k' && fromR === 0 && fromC === 4) {
                         // Black castling
@@ -439,7 +444,7 @@ export class GBChessGame {
                                 this.isSquareUnderAttack(0, 6, true)) { // Destination
                                 return false;
                             }
-                            return true;
+                            break;
                         } else if (dc === -2) {
                             // Queen-side castling
                             if (!this.castlingRights.blackQueenSide ||
@@ -454,7 +459,7 @@ export class GBChessGame {
                                 this.isSquareUnderAttack(0, 2, true)) { // Destination
                                 return false;
                             }
-                            return true;
+                            break;
                         }
                     }
                 }
@@ -485,7 +490,7 @@ export class GBChessGame {
                     r += stepR;
                     c += stepC;
                 }
-                return true;
+                break;
             }
             default:
                 return false;
