@@ -580,6 +580,14 @@
                 
                 if (bestMove) {
                     const piece = game.board[bestMove.fromRow][bestMove.fromCol];
+                    
+                    // Debug: log the move attempt
+                    if (piece === '.') {
+                        console.error('Error: Source square is empty!', bestMove);
+                        console.error('Board state:', game.getBoardString());
+                        console.error('whiteToMove:', game.whiteToMove);
+                    }
+                    
                     const moveSuccess = game.makeMove(
                         bestMove.fromRow,
                         bestMove.fromCol,
@@ -606,7 +614,11 @@
                             showStatus('Game Over! ' + (game.whiteToMove ? 'Black' : 'White') + ' wins!', 'success');
                         }
                     } else {
-                        showStatus('AI move failed!', 'error');
+                        console.error('Move failed!', bestMove);
+                        console.error('Piece:', piece);
+                        console.error('Board:', game.getBoardString());
+                        console.error('whiteToMove:', game.whiteToMove);
+                        showStatus('AI move failed! Check console for details.', 'error');
                     }
                 } else {
                     showStatus('No legal moves available!', 'error');
