@@ -385,7 +385,14 @@ export class GBChessGame {
                 // Make move
                 const captured = this.board[move.toRow][move.toCol];
                 const piece = this.board[move.fromRow][move.fromCol];
-                this.board[move.toRow][move.toCol] = piece;
+                let movedPiece = piece;
+                
+                // Handle pawn promotion
+                if ((piece === 'P' && move.toRow === 0) || (piece === 'p' && move.toRow === 7)) {
+                    movedPiece = piece === 'P' ? 'Q' : 'q';
+                }
+                
+                this.board[move.toRow][move.toCol] = movedPiece;
                 this.board[move.fromRow][move.fromCol] = '.';
                 this.whiteToMove = false;
 
@@ -407,7 +414,14 @@ export class GBChessGame {
                 // Make move
                 const captured = this.board[move.toRow][move.toCol];
                 const piece = this.board[move.fromRow][move.fromCol];
-                this.board[move.toRow][move.toCol] = piece;
+                let movedPiece = piece;
+                
+                // Handle pawn promotion
+                if ((piece === 'P' && move.toRow === 0) || (piece === 'p' && move.toRow === 7)) {
+                    movedPiece = piece === 'P' ? 'Q' : 'q';
+                }
+                
+                this.board[move.toRow][move.toCol] = movedPiece;
                 this.board[move.fromRow][move.fromCol] = '.';
                 this.whiteToMove = true;
 
@@ -446,7 +460,14 @@ export class GBChessGame {
             // Make move
             const captured = this.board[move.toRow][move.toCol];
             const piece = this.board[move.fromRow][move.fromCol];
-            this.board[move.toRow][move.toCol] = piece;
+            let movedPiece = piece;
+            
+            // Handle pawn promotion
+            if ((piece === 'P' && move.toRow === 0) || (piece === 'p' && move.toRow === 7)) {
+                movedPiece = piece === 'P' ? 'Q' : 'q';
+            }
+            
+            this.board[move.toRow][move.toCol] = movedPiece;
             this.board[move.fromRow][move.fromCol] = '.';
             this.whiteToMove = !this.whiteToMove;
 
